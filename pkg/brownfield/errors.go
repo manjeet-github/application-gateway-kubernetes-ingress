@@ -9,5 +9,5 @@ import "errors"
 
 var (
 	// ErrListenerLookup is an error.
-	ErrListenerLookup = errors.New("failed looking up listener")
+	ErrListenerLookup = errors.New("failed looking up listener (BFLD001)")
 )
