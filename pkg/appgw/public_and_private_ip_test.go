@@ -28,6 +28,7 @@ import (
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/environment"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/k8scontext"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/tests"
+	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/tests/mocks"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/utils"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/version"
 )
@@ -273,7 +274,7 @@ var _ = Describe("Tests `appgw.ConfigBuilder`", func() {
 	}
 
 	// Initialize the `ConfigBuilder`
-	configBuilder := NewConfigBuilder(ctxt, &appGwIdentifier, appGwy, record.NewFakeRecorder(100))
+	configBuilder := NewConfigBuilder(ctxt, &appGwIdentifier, appGwy, record.NewFakeRecorder(100), mocks.Clock{})
 
 	Context("Tests Application Gateway config creation", func() {
 		cbCtx := &ConfigBuilderContext{
@@ -311,7 +312,7 @@ var _ = Describe("Tests `appgw.ConfigBuilder`", func() {
 --    "properties": {
 --        "backendAddressPools": [
 --            {
---                "id": "/subscriptions/--subscription--/resourceGroups/--resource-group--/providers/Microsoft.Network/applicationGateways/--app-gw-name--/backendAddressPools/defaultaddresspool",    
+--                "id": "/subscriptions/--subscription--/resourceGroups/--resource-group--/providers/Microsoft.Network/applicationGateways/--app-gw-name--/backendAddressPools/defaultaddresspool",
 --                "name": "defaultaddresspool",
 --                "properties": {
 --                    "backendAddresses": []
@@ -487,7 +488,7 @@ var _ = Describe("Tests `appgw.ConfigBuilder`", func() {
 --                        "id": "/subscriptions/--subscription--/resourceGroups/--resource-group--/providers/Microsoft.Network/applicationGateways/--app-gw-name--/backendHttpSettingsCollection/bp---namespace-----service-name---80-80-internal-ingress-resource"
 --                    },
 --                    "httpListener": {
---                        "id": "/subscriptions/--subscription--/resourceGroups/--resource-group--/providers/Microsoft.Network/applicationGateways/--app-gw-name--/httpListeners/fl-80-privateip"      
+--                        "id": "/subscriptions/--subscription--/resourceGroups/--resource-group--/providers/Microsoft.Network/applicationGateways/--app-gw-name--/httpListeners/fl-80-privateip"
 --                    },
 --                    "ruleType": "Basic"
 --                }
@@ -513,6 +514,7 @@ var _ = Describe("Tests `appgw.ConfigBuilder`", func() {
 --    },
 --    "tags": {
 --        "ingress-for-aks-cluster-id": "/subscriptions/subid/resourcegroups/aksresgp/providers/Microsoft.ContainerService/managedClusters/aksname",
+--        "last-updated-by-k8s-ingress": "2009-11-17 20:34:58.651387237 +0000 UTC",
 --        "managed-by-k8s-ingress": "a/b/c"
 --    }
 --}`
