@@ -115,9 +115,9 @@ For the following steps we need setup [kubectl](https://kubectl.docs.kubernetes.
 which we will use to connect to our new Kubernetes cluster. [Cloud Shell](https://shell.azure.com/) has `kubectl` already installed. We will use `az` CLI to obtain credentials for Kubernetes.
 
 Get credentials for your newly deployed AKS ([read more](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough#connect-to-the-cluster)):
-    ```bash
-    az aks get-credentials --resource-group $resourceGroupName --name $aksClusterName
-    ```
+```bash
+az aks get-credentials --resource-group $resourceGroupName --name $aksClusterName
+```
 
 ### Install AAD Pod Identity
   Azure Active Directory Pod Identity provides token-based access to
