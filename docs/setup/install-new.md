@@ -19,6 +19,7 @@ choose to use another environment, please ensure the following command line tool
 1. `az` - Azure CLI: [installation instructions](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest)
 1. `kubectl` - Kubernetes command-line tool: [installation instructions](https://kubernetes.io/docs/tasks/tools/install-kubectl)
 1. `helm` - Kubernetes package manager: [installation instructions](https://github.com/helm/helm/releases/latest)
+1. `jq` - command-line JSON processor: [installation instructions](https://stedolan.github.io/jq/download/)
 
 
 ### Create an Identity
@@ -34,14 +35,27 @@ Follow the steps below to create an Azure Active Directory (AAD) [service princi
     note: the `appId` and `password` values from the JSON output will be used in the following steps
 
 
-2. Use the `appId` from the previous command's output to get the `objectId` of the new service principal:
+1. Use the `appId` from the previous command's output to get the `objectId` of the new service principal:
     ```bash
     objectId=$(az ad sp show --id $appId --query "objectId" -o tsv)
     ```
     note: the output of this command is `objectId`, which will be used in the ARM template below
 
+1. Create the parameter file that will be used in the ARM template deployment later.
+    ```bash
+    cat <<EOF > parameters.json
+    {
+      "aksServicePrincipalAppId": { "value": "$appId" },
+      "aksServicePrincipalClientSecret": { "value": "$password" },
+      "aksServicePrincipalObjectId": { "value": "$objectId" },
+      "aksEnableRBAC": { "value": false }
+    }
+    EOF
+    ```
+    Note: To deploy an **RBAC** enabled cluster, set the `aksEnabledRBAC` field to `true`
+
 ### Deploy Components
-Click on the **Deploy to Azure** icon below to begin the infrastructure deployment using an [ARM template](https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates). This step will add the following components to your subscription:
+This step will add the following components to your subscription:
 
 - [Azure Kubernetes Service](https://docs.microsoft.com/en-us/azure/aks/intro-kubernetes)
 - [Application Gateway](https://docs.microsoft.com/en-us/azure/application-gateway/overview) v2
@@ -53,27 +67,6 @@ Click on the **Deploy to Azure** icon below to begin the infrastructure deployme
     ```bash
     wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/deploy/azuredeploy.json -O template.json
     ```
-
-1. Create the parameter file.
-    ```bash
-    cat <<EOF > parameters.json
-    {
-      "aksServicePrincipalAppId": { "value": "$appId" },
-      "aksServicePrincipalClientSecret": { "value": "$password" },
-      "aksServicePrincipalObjectId": { "value": "$objectId" },
-      "aksEnableRBAC": { "value": false }
-    }
-    EOF
-    ```
-
-    #### Important
-    Please use the `appId`, `objectId`, and `password` values from the `az` commands above and
-    paste them in the corresponding ARM template fields:
-      - paste the `appId` vaule in the `Aks Service Principal App Id` template field
-      - paste the `password` value in the `Aks Service Principal Client Secret` field
-      - paste the `objectId` value in the `Aks Service Principal Object Id` field
-
-    Note: To deploy an **RBAC** enabled cluster, set the `aksEnabledRBAC` field to `true`
 
 1. Deploy the ARM template.
     ```bash
@@ -89,25 +82,18 @@ Click on the **Deploy to Azure** icon below to begin the infrastructure deployme
             -g $resourceGroupName \
             -n $deploymentName \
             --template-file template.json \
-            --parameters ./parameters.json
+            --parameters parameters.json
     ```
 
-1. Save the output from the deployment
+1. Download the ARM template deployment into a file named `deployment-outputs.json`
     ```bash
-    az group deployment show -g $resourceGroupName -n $deploymentName --query "properties.outputs" -o json > outputs.json
-    aksClusterName=$(jq -r ".aksClusterName.value" outputs.json)
-    applicationGatewayName=$(jq -r ".applicationGatewayName.value" outputs.json)
-    resourceGroupName=$(jq -r ".resourceGroupName.value" outputs.json)
-    subscriptionId=$(jq -r ".subscriptionId.value" outputs.json)
-    identityClientId=$(jq -r ".identityClientId.value" outputs.json)
-    identityResourceId=$(jq -r ".identityResourceId.value" outputs.json)
+    az group deployment show -g $resourceGroupName -n $deploymentName --query "properties.outputs" -o json > deployment-outputs.json
     ```
-
 
 ## Set up Application Gateway Ingress Controller
 
 With the instructions in the previous section we created and configured a new AKS cluster and
-an App Gateway. We are now ready to deploy an sample app and an ingress controller to our new
+an App Gateway. We are now ready to deploy a sample app and an ingress controller to our new
 Kubernetes infrastructure.
 
 ### Setup Kubernetes Credentials
@@ -116,6 +102,10 @@ which we will use to connect to our new Kubernetes cluster. [Cloud Shell](https:
 
 Get credentials for your newly deployed AKS ([read more](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough#connect-to-the-cluster)):
 ```bash
+# use the deployment-outputs.json created after deployment to get the cluster name and resource group name
+aksClusterName=$(jq -r ".aksClusterName.value" deployment-outputs.json)
+resourceGroupName=$(jq -r ".resourceGroupName.value" deployment-outputs.json)
+
 az aks get-credentials --resource-group $resourceGroupName --name $aksClusterName
 ```
 
@@ -171,6 +161,14 @@ Kubernetes. We will leverage it to install the `application-gateway-kubernetes-i
 
 ### Install Ingress Controller
 
+1. Use the `deployment-outputs.json` file created above and create the following variables.
+    ```bash
+    applicationGatewayName=$(jq -r ".applicationGatewayName.value" deployment-outputs.json)
+    resourceGroupName=$(jq -r ".resourceGroupName.value" deployment-outputs.json)
+    subscriptionId=$(jq -r ".subscriptionId.value" deployment-outputs.json)
+    identityClientId=$(jq -r ".identityClientId.value" deployment-outputs.json)
+    identityResourceId=$(jq -r ".identityResourceId.value" deployment-outputs.json)
+    ```
 1. Download [helm-config.yaml](../examples/sample-helm-config.yaml), which will configure AGIC:
     ```bash
     wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/docs/examples/sample-helm-config.yaml -O helm-config.yaml
