@@ -68,7 +68,7 @@ This step will add the following components to your subscription:
     wget https://raw.githubusercontent.com/Azure/application-gateway-kubernetes-ingress/master/deploy/azuredeploy.json -O template.json
     ```
 
-1. Deploy the ARM template.
+1. Deploy the ARM template using `az cli`. This may take up to 5 minutes.
     ```bash
     resourceGroupName="MyResourceGroup"
     location="westus2"
@@ -85,7 +85,7 @@ This step will add the following components to your subscription:
             --parameters parameters.json
     ```
 
-1. Download the ARM template deployment into a file named `deployment-outputs.json`
+1. Once the deployment finished, download the deployment output into a file named `deployment-outputs.json`.
     ```bash
     az group deployment show -g $resourceGroupName -n $deploymentName --query "properties.outputs" -o json > deployment-outputs.json
     ```
