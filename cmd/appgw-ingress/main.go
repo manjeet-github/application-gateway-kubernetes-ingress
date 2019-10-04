@@ -88,14 +88,21 @@ func main() {
 	agicPod := k8sContext.GetAGICPod(env)
 	metricStore := metricstore.NewMetricStore(env)
 
+	// get the details from Azure Context
+	azContext, err := azure.NewAzContext(env.AzContextLocation)
+	if err != nil {
+		glog.Info("Unable to load Azure Context file:", env.AzContextLocation)
+	}
+
+	// adjust env variable
 	if env.AppGwName == "" {
 		env.AppGwName = env.ReleaseName
 	}
 
-	if infraSubID, infraResourceGp, err := k8sContext.GetInfrastructureResourceGroupID(); env.SubscriptionID == "" && err != nil {
-		env.SubscriptionID = string(infraSubID)
+	if azContext != nil && env.SubscriptionID == "" {
+		env.SubscriptionID = string(azContext.SubscriptionID)
 		if env.ResourceGroupName == "" {
-			env.ResourceGroupName = string(infraResourceGp)
+			env.ResourceGroupName = string(string(azContext.ResourceGroup))
 		}
 	}
 
@@ -105,18 +112,22 @@ func main() {
 
 	glog.V(3).Infof("App Gateway Details: Subscription: %s, Resource Group: %s, Name: %s", env.SubscriptionID, env.ResourceGroupName, env.AppGwName)
 
-	var err error
 	var authorizer autorest.Authorizer
-	if authorizer, err = azure.GetAuthorizerWithRetry(env.AuthLocation, maxAuthRetryCount, retryPause); err != nil {
+	if authorizer, err = azure.GetAuthorizerWithRetry(env.AuthLocation, azContext, maxAuthRetryCount, retryPause); err != nil {
 		glog.Fatal("Failed obtaining authentication token for Azure Resource Manager")
 	}
 
 	azClient := azure.NewAzClient(azure.SubscriptionID(env.SubscriptionID), azure.ResourceGroup(env.ResourceGroupName), azure.ResourceName(env.AppGwName), authorizer)
 	if err = azure.WaitForAzureAuth(azClient, maxAuthRetryCount, retryPause); err != nil {
 		if err == azure.ErrAppGatewayNotFound && env.EnableDeployAppGateway {
-			err = azClient.DeployGateway(env.AppGwSubnetID)
+			if env.AppGwSubnetID != "" {
+				err = azClient.DeployGatewayWithSubnet(env.AppGwSubnetID)
+			} else if azContext != nil {
+				err = azClient.DeployGatewayWithVnet(azure.ResourceGroup(azContext.VNetResourceGroup), azure.ResourceName(azContext.VNetName), env.AppGwSubnetPrefix)
+			}
+
 			if err != nil {
-				glog.Fatal("Failed in deploying App gateway", err)
+				glog.Fatal("Failed to deploying App gateway", err)
 			}
 		} else {
 			glog.Fatal("Failed authenticating with Azure Resource Manager: ", err)

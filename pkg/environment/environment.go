@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	// AzContextLocationVarName is an environment variable name. This file is available on azure cluster.
+	AzContextLocationVarName = "AZURE_CONTEXT_LOCATION"
+
 	// SubscriptionIDVarName is the name of the APPGW_SUBSCRIPTION_ID
 	SubscriptionIDVarName = "APPGW_SUBSCRIPTION_ID"
 
@@ -23,8 +26,11 @@ const (
 	// AppGwNameVarName is the name of the APPGW_NAME
 	AppGwNameVarName = "APPGW_NAME"
 
-	// AppGwSubnetIDVarName is the name of the APPGW_SUBNET_ID
+	// AppGwSubnetIDVarName is the name of the APPGW_SUBNETID
 	AppGwSubnetIDVarName = "APPGW_SUBNETID"
+
+	// AppGwSubnetPrefixVarName is the name of the APPGW_SUBNETPREFIX
+	AppGwSubnetPrefixVarName = "APPGW_SUBNETPREFIX"
 
 	// ReleaseNameVarName is the name of the RELEASE_NAME
 	ReleaseNameVarName = "RELEASE_NAME"
@@ -68,10 +74,12 @@ const (
 
 // EnvVariables is a struct storing values for environment variables.
 type EnvVariables struct {
+	AzContextLocation          string
 	SubscriptionID             string
 	ResourceGroupName          string
 	AppGwName                  string
 	AppGwSubnetID              string
+	AppGwSubnetPrefix          string
 	ReleaseName                string
 	AuthLocation               string
 	WatchNamespace             string
@@ -93,10 +101,12 @@ var boolValidator = regexp.MustCompile(`^(?i)(true|false)$`)
 // GetEnv returns values for defined environment variables for Ingress Controller.
 func GetEnv() EnvVariables {
 	env := EnvVariables{
+		AzContextLocation:          os.Getenv(AzContextLocationVarName),
 		SubscriptionID:             os.Getenv(SubscriptionIDVarName),
 		ResourceGroupName:          os.Getenv(ResourceGroupNameVarName),
 		AppGwName:                  os.Getenv(AppGwNameVarName),
 		AppGwSubnetID:              os.Getenv(AppGwSubnetIDVarName),
+		AppGwSubnetPrefix:          os.Getenv(AppGwSubnetPrefixVarName),
 		ReleaseName:                os.Getenv(ReleaseNameVarName),
 		AuthLocation:               os.Getenv(AuthLocationVarName),
 		WatchNamespace:             os.Getenv(WatchNamespaceVarName),
@@ -117,10 +127,9 @@ func GetEnv() EnvVariables {
 
 // ValidateEnv validates environment variables.
 func ValidateEnv(env EnvVariables) error {
-	if env.EnableDeployAppGateway {
-		if len(env.AppGwSubnetID) == 0 {
-			return errors.New("Missing required Environment variables: Provide APPGW_SUBNETID (ENVT001)")
-		}
+	if env.EnableDeployAppGateway && len(env.AppGwSubnetID) == 0 && len(env.AppGwSubnetPrefix) == 0 {
+		// when create is true, then either we should have env.AppGwSubnetID or env.AppGwSubnetPrefix
+		return errors.New("Missing required Environment variables: Please provide APPGW_SUBNETID or APPGW_SUBNETPREFIX used to create the App Gateway (ENVT001)")
 	} else if len(env.SubscriptionID) == 0 || len(env.ResourceGroupName) == 0 || len(env.AppGwName) == 0 {
 		return errors.New("Missing required Environment variables: Provide APPGW_SUBSCRIPTION_ID, APPGW_RESOURCE_GROUP and APPGW_NAME (ENVT002)")
 	}
